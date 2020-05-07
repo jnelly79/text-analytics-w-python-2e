@@ -11,20 +11,20 @@ from bs4 import BeautifulSoup
 
 tokenizer = ToktokTokenizer()
 stopword_list = nltk.corpus.stopwords.words('english')
-nlp = spacy.load('en', parse=True, tag=True, entity=True)
+nlp = spacy.load('en_core_web_md', parse=False, tag=False, entity=False)
 # nlp_vec = spacy.load('en_vectors_web_lg', parse=True, tag=True, entity=True)
 
 
 
-def strip_html_tags(text):
-    soup = BeautifulSoup(text, "html.parser")
-    if bool(soup.find()):
-        [s.extract() for s in soup(['iframe', 'script'])]
-        stripped_text = soup.get_text()
-        stripped_text = re.sub(r'[\r|\n|\r\n]+', '\n', stripped_text)
-    else:
-        stripped_text = text
-    return stripped_text
+#def strip_html_tags(text):
+#    soup = BeautifulSoup(text, "html.parser")
+#    if bool(soup.find()):
+#        [s.extract() for s in soup(['iframe', 'script'])]
+#        stripped_text = soup.get_text()
+#        stripped_text = re.sub(r'[\r|\n|\r\n]+', '\n', stripped_text)
+#    else:
+#        stripped_text = text
+#    return stripped_text
 
 
 #def correct_spellings_textblob(tokens):
@@ -51,24 +51,24 @@ def remove_repeated_characters(tokens):
             return old_word
         new_word = repeat_pattern.sub(match_substitution, old_word)
         return replace(new_word) if new_word != old_word else new_word
-            
+
     correct_tokens = [replace(word) for word in tokens]
     return correct_tokens
 
 
 def expand_contractions(text, contraction_mapping=CONTRACTION_MAP):
-    
-    contractions_pattern = re.compile('({})'.format('|'.join(contraction_mapping.keys())), 
+
+    contractions_pattern = re.compile('({})'.format('|'.join(contraction_mapping.keys())),
                                       flags=re.IGNORECASE|re.DOTALL)
     def expand_match(contraction):
         match = contraction.group(0)
         first_char = match[0]
         expanded_contraction = contraction_mapping.get(match)\
                                 if contraction_mapping.get(match)\
-                                else contraction_mapping.get(match.lower())                       
+                                else contraction_mapping.get(match.lower())
         expanded_contraction = first_char+expanded_contraction[1:]
         return expanded_contraction
-        
+
     expanded_text = contractions_pattern.sub(expand_match, text)
     expanded_text = re.sub("'", "", expanded_text)
     return expanded_text
@@ -92,23 +92,28 @@ def remove_stopwords(text, is_lower_case=False, stopwords=stopword_list):
         filtered_tokens = [token for token in tokens if token not in stopwords]
     else:
         filtered_tokens = [token for token in tokens if token.lower() not in stopwords]
-    filtered_text = ' '.join(filtered_tokens)    
+    filtered_text = ' '.join(filtered_tokens)
     return filtered_text
 
+def tokens(text):
+    return re.findall('[a-z]+', text.lower())
 
-def normalize_corpus(corpus, html_stripping=True, contraction_expansion=True,
-                     accented_char_removal=True, text_lower_case=True, 
-                     text_stemming=False, text_lemmatization=True, 
+def normalize_corpus(corpus, html_stripping=False, contraction_expansion=True,
+                     accented_char_removal=True, text_lower_case=True,
+                     text_stemming=False, text_lemmatization=True,
                      special_char_removal=True, remove_digits=True,
-                     stopword_removal=True, stopwords=stopword_list):
-    
+                     stopword_removal=True, tokenize_text=True, stopwords=stopword_list):
+
     normalized_corpus = []
+    #sub_corpus = []
     # normalize each document in the corpus
     for doc in corpus:
-
-        # strip HTML
-        if html_stripping:
-            doc = strip_html_tags(doc)
+        #print(doc)
+        #for row in doc:
+            #print(row)
+            # strip HTML
+                #if html_stripping:
+         	#   doc = strip_html_tags(doc)
 
         # remove extra newlines
         doc = doc.translate(doc.maketrans("\n\t\r", "   "))
@@ -117,7 +122,7 @@ def normalize_corpus(corpus, html_stripping=True, contraction_expansion=True,
         if accented_char_removal:
             doc = remove_accented_chars(doc)
 
-        # expand contractions    
+        # expand contractions
         if contraction_expansion:
             doc = expand_contractions(doc)
 
@@ -127,30 +132,35 @@ def normalize_corpus(corpus, html_stripping=True, contraction_expansion=True,
 
         # stem text
         if text_stemming and not text_lemmatization:
-        	doc = simple_porter_stemming(doc)
+            doc = simple_porter_stemming(doc)
 
-        # remove special characters and\or digits    
+        # remove special characters and\or digits
         if special_char_removal:
-            # insert spaces between special characters to isolate them    
+             # insert spaces between special characters to isolate them
             special_char_pattern = re.compile(r'([{.(-)!}])')
             doc = special_char_pattern.sub(" \\1 ", doc)
-            doc = remove_special_characters(doc, remove_digits=remove_digits)  
+            doc = remove_special_characters(doc, remove_digits=remove_digits)
 
         # remove extra whitespace
         doc = re.sub(' +', ' ', doc)
 
-         # lowercase the text    
+        # lowercase the text
         if text_lower_case:
             doc = doc.lower()
+
+        # remove extra whitespace
+        doc = re.sub(' +', ' ', doc)
+        doc = doc.strip()
 
         # remove stopwords
         if stopword_removal:
             doc = remove_stopwords(doc, is_lower_case=text_lower_case, stopwords=stopwords)
 
-        # remove extra whitespace
-        doc = re.sub(' +', ' ', doc)
-        doc = doc.strip()
-            
+        if tokenize_text:
+            doc = tokens(doc)
+		
+
+            #sub_corpus.append(row)
         normalized_corpus.append(doc)
-        
+
     return normalized_corpus
